@@ -36,6 +36,11 @@
 #define HAVE_REALPATH
 #endif
 
+#if IS_DARWIN
+#include <libproc.h>
+#include <sys/proc_info.h>
+#endif
+
 static int help_flag, version_flag;
 
 static const struct option long_options[] = {

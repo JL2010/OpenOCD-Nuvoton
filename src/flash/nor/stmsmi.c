@@ -79,6 +79,7 @@
 	SMI_READ_REG(SMI_CR1) & ~(SMI_SW_MODE | SMI_WB_MODE))
 #define SMI_CLEAR_TFF()		SMI_WRITE_REG(SMI_SR, ~SMI_TFF)
 
+
 #define SMI_BANK_SIZE      (0x01000000)
 
 #define SMI_CR1 (0x00) /* Control register 1 */
@@ -156,19 +157,57 @@ FLASH_BANK_COMMAND_HANDLER(stmsmi_flash_bank_command)
 	return ERROR_OK;
 }
 
+static inline int smi_set_sw_mode(struct target *target, uint32_t io_base)
+{
+        uint32_t reg_val;
+	int ret = target_read_u32(target, io_base + SMI_CR1, &reg_val);
+        if (ret != ERROR_OK)
+        	return ret;
+        SMI_WRITE_REG(SMI_CR1, reg_val | SMI_SW_MODE);
+        return ret;
+}
+
+static inline int smi_set_hwwb_mode(struct target *target, uint32_t io_base)
+{
+        uint32_t reg_val;
+	int ret = target_read_u32(target, io_base + SMI_CR1, &reg_val);
+        if (ret != ERROR_OK)
+        	return ret;
+        SMI_WRITE_REG(SMI_CR1, (reg_val | SMI_WB_MODE) & ~SMI_SW_MODE);
+        return ret;
+}
+
+static inline int smi_set_hw_mode(struct target *target, uint32_t io_base)
+{
+        uint32_t reg_val;
+	int ret = target_read_u32(target, io_base + SMI_CR1, &reg_val);
+        if (ret != ERROR_OK)
+        	return ret;
+        SMI_WRITE_REG(SMI_CR1, reg_val & ~(SMI_SW_MODE | SMI_WB_MODE));
+        return ret;
+}
+
 /* Poll transmit finished flag */
 /* timeout in ms */
 static int poll_tff(struct target *target, uint32_t io_base, int timeout)
 {
 	int64_t endtime;
+	uint32_t reg_val;
+	int ret = target_read_u32(target, io_base + SMI_SR, &reg_val);
 
-	if (SMI_READ_REG(SMI_SR) & SMI_TFF)
+	if (ret != ERROR_OK)
+		return ret;
+
+	if (reg_val & SMI_TFF)
 		return ERROR_OK;
 
 	endtime = timeval_ms() + timeout;
 	do {
 		alive_sleep(1);
-		if (SMI_READ_REG(SMI_SR) & SMI_TFF)
+		ret = target_read_u32(target, io_base + SMI_SR, &reg_val);
+		if (ret != ERROR_OK)
+			return ret;
+		if (reg_val & SMI_TFF)
 			return ERROR_OK;
 	} while (timeval_ms() < endtime);
 
@@ -197,7 +236,11 @@ static int read_status_reg(struct flash_bank *bank, uint32_t *status)
 	/* clear transmit finished flag */
 	SMI_CLEAR_TFF();
 
-	*status = SMI_READ_REG(SMI_SR) & 0x0000ffff;
+        uint32_t reg_val;
+	int ret = target_read_u32(target, io_base + SMI_SR, &reg_val);
+        if (ret != ERROR_OK)
+        	return ret;
+	*status = reg_val & 0x0000ffff;
 
 	/* clean-up SMI_CR2 */
 	SMI_WRITE_REG(SMI_CR2, 0); /* AB: Required ? */
@@ -241,7 +284,9 @@ static int smi_write_enable(struct flash_bank *bank)
 	int retval;
 
 	/* Enter in HW mode */
-	SMI_SET_HW_MODE(); /* AB: is this correct ?*/
+	int ret = smi_set_hw_mode(target, io_base);
+        if (ret != ERROR_OK)
+        	return ret;
 
 	/* clear transmit finished flag */
 	SMI_CLEAR_TFF();
@@ -295,7 +340,9 @@ static int smi_erase_sector(struct flash_bank *bank, int sector)
 		return retval;
 
 	/* Switch to SW mode to send sector erase command */
-	SMI_SET_SW_MODE();
+	int ret = smi_set_sw_mode(target, io_base);
+        if (ret != ERROR_OK)
+        	return ret;
 
 	/* clear transmit finished flag */
 	SMI_CLEAR_TFF();
@@ -356,7 +403,9 @@ static int stmsmi_erase(struct flash_bank *bank, int first, int last)
 	}
 
 	/* Switch to HW mode before return to prompt */
-	SMI_SET_HW_MODE();
+	int ret = smi_set_hw_mode(target, io_base);
+        if (ret != ERROR_OK)
+        	return ret;
 	return retval;
 }
 
@@ -386,7 +435,9 @@ static int smi_write_buffer(struct flash_bank *bank, const uint8_t *buffer,
 		return retval;
 
 	/* HW mode, write burst mode */
-	SMI_SET_HWWB_MODE();
+	int ret = smi_set_hwwb_mode(target, io_base);
+        if (ret != ERROR_OK)
+        	return ret;
 
 	retval = target_write_buffer(target, address, len, buffer);
 	if (retval != ERROR_OK)
@@ -475,7 +526,7 @@ static int stmsmi_write(struct flash_bank *bank, const uint8_t *buffer,
 
 err:
 	/* Switch to HW mode before return to prompt */
-	SMI_SET_HW_MODE();
+        smi_set_hw_mode(target, io_base);
 	return retval;
 }
 
@@ -499,7 +550,9 @@ static int read_flash_id(struct flash_bank *bank, uint32_t *id)
 		return retval;
 
 	/* enter in SW mode */
-	SMI_SET_SW_MODE();
+        int ret = smi_set_sw_mode(target, io_base);
+        if (ret != ERROR_OK)
+                return ret;
 
 	/* clear transmit finished flag */
 	SMI_CLEAR_TFF();
@@ -516,7 +569,10 @@ static int read_flash_id(struct flash_bank *bank, uint32_t *id)
 	SMI_CLEAR_TFF();
 
 	/* read ID from Receive Register */
-	*id = SMI_READ_REG(SMI_RR) & 0x00ffffff;
+        ret = target_read_u32(target, io_base + SMI_RR, id);
+        if (ret != ERROR_OK)
+        	return ret;
+	*id &= 0x00ffffff;
 	return ERROR_OK;
 }
 
@@ -568,7 +624,9 @@ static int stmsmi_probe(struct flash_bank *bank)
 
 	/* read and decode flash ID; returns in SW mode */
 	retval = read_flash_id(bank, &id);
-	SMI_SET_HW_MODE();
+        int ret = smi_set_hw_mode(target, io_base);
+        if (ret != ERROR_OK)
+        	return ret;
 	if (retval != ERROR_OK)
 		return retval;
 

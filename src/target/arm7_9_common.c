@@ -1546,7 +1546,6 @@ static int arm7_9_restore_context(struct target *target)
 
 		if (dirty) {
 			uint32_t mask = 0x0;
-			int num_regs = 0;
 			uint32_t regs[16];
 
 			if (mode_change) {
@@ -1569,7 +1568,6 @@ static int arm7_9_restore_context(struct target *target)
 				if (reg->dirty == 1) {
 					regs[j] = buf_get_u32(reg->value, 0, 32);
 					mask |= 1 << j;
-					num_regs++;
 					reg->dirty = 0;
 					reg->valid = 1;
 					LOG_DEBUG("writing register %i mode %s "

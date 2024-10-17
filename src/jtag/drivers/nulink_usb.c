@@ -60,8 +60,8 @@ struct nulink_usb_handle_s {
 	struct jtag_libusb_device_handle *fd;
 	struct libusb_transfer *trans;
 	uint8_t interface_num;
-	uint8_t rx_ep;
-	uint8_t tx_ep;
+	uint32_t rx_ep;
+	uint32_t tx_ep;
 	uint16_t max_packet_size;
 	uint32_t usbcmdidx;
 	uint16_t cmdidx;

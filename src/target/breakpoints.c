@@ -50,11 +50,8 @@ int breakpoint_add_internal(struct target *target,
 	struct breakpoint **breakpoint_p = &target->breakpoints;
 	const char *reason;
 	int retval;
-	int n;
 
-	n = 0;
 	while (breakpoint) {
-		n++;
 		if (breakpoint->address == address) {
 			/* FIXME don't assume "same address" means "same
 			 * breakpoint" ... check all the parameters before
@@ -114,11 +111,8 @@ int context_breakpoint_add_internal(struct target *target,
 	struct breakpoint *breakpoint = target->breakpoints;
 	struct breakpoint **breakpoint_p = &target->breakpoints;
 	int retval;
-	int n;
 
-	n = 0;
 	while (breakpoint) {
-		n++;
 		if (breakpoint->asid == asid) {
 			/* FIXME don't assume "same address" means "same
 			 * breakpoint" ... check all the parameters before
@@ -167,10 +161,8 @@ int hybrid_breakpoint_add_internal(struct target *target,
 	struct breakpoint *breakpoint = target->breakpoints;
 	struct breakpoint **breakpoint_p = &target->breakpoints;
 	int retval;
-	int n;
-	n = 0;
+
 	while (breakpoint) {
-		n++;
 		if ((breakpoint->asid == asid) && (breakpoint->address == address)) {
 			/* FIXME don't assume "same address" means "same
 			 * breakpoint" ... check all the parameters before
