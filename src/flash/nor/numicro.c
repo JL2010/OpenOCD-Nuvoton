@@ -160,7 +160,8 @@ typedef enum {
 	NUC_CHIP_TYPE_M471			= 0x40A,
 	NUC_CHIP_TYPE_M480			= 0x411,
 	NUC_CHIP_TYPE_M460			= 0x49A,
-	NUC_CHIP_TYPE_NUC505		= 0x500
+	NUC_CHIP_TYPE_NUC505		= 0x500,
+	NUC_CHIP_TYPE_I9100		    = 0x014,
 } NUC_CHIP_TYPE_E;
 
 /* If DataFlash size equals zero, it means the actual size depends on config settings. */
@@ -832,6 +833,10 @@ static const struct numicro_cpu_type NuMicroParts[] = {
 	{"M460SGCAE", 0x01C46010, NUMICRO_BANKS_OFFSET(256*1024, 0*1024, 8*1024, 16)},
 	{"M460LGCAE", 0x01C46000, NUMICRO_BANKS_OFFSET(256*1024, 0*1024, 8*1024, 16)},
 	{"M460YGCAE", 0x01C46090, NUMICRO_BANKS_OFFSET(256*1024, 0*1024, 8*1024, 16)},
+
+	/* I9100, Note: Reference manual claims 0x1D000183 device ID, but actual
+	 * read value is 0x1D070183 */
+	{"I9100", 0x1D070183, NUMICRO_BANKS_GENERAL(141*1024, 0*1024, 4*1024, 0, 8)},
 
 	/* I94100 */
 	{"I94124A", 0x1D0105BA, NUMICRO_BANKS_GENERAL(512*1024, 0*1024, 4*1024, 0, 16)},
@@ -3960,6 +3965,9 @@ static int numicro_probe(struct flash_bank *bank)
 			m_pageSize = NUMICRO_PAGESIZE * 4;
 			m_eChipType = NUC_CHIP_TYPE_M0564;
 		}
+		else if (cpu->partid == 0x1D070183) {
+			m_pageSize = NUMICRO_PAGESIZE * 2; /* 1KB page size for I9100 */
+		}
 		else {
 			m_pageSize = NUMICRO_PAGESIZE;
 		}
@@ -4038,6 +4046,10 @@ static int numicro_probe(struct flash_bank *bank)
 		((cpu->partid & 0xFF00FF00) == 0x1D000500/* I94100 */)) {
 		m_target_name = "M480";
 		m_eChipType = NUC_CHIP_TYPE_M480;
+	}
+	else if (cpu->partid == 0x1D070183) {
+		m_target_name = "I9100";
+		m_eChipType = NUC_CHIP_TYPE_I9100;
 	}
 	else if (((cpu->partid & 0xFFFFFFF0) == 0x01647140) ||
 		((cpu->partid & 0xFFFFFFF0) == 0x01647130) ||
